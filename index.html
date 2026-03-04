@@ -2,27 +2,103 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Space Invaders</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
+  html, body {
     background: #000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
     overflow: hidden;
     font-family: 'Courier New', monospace;
+    touch-action: none;
+    user-select: none;
+  }
+  #wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    gap: 0;
   }
   canvas {
     display: block;
     image-rendering: pixelated;
+    flex-shrink: 0;
+  }
+  #touch-controls {
+    display: none;
+    width: 100%;
+    flex: 1;
+    min-height: 80px;
+    max-height: 160px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    gap: 10px;
+    box-sizing: border-box;
+  }
+  #touch-controls.visible { display: flex; }
+  .touch-btn {
+    background: rgba(0,255,68,0.12);
+    border: 2px solid rgba(0,255,68,0.5);
+    border-radius: 50%;
+    color: #00ff44;
+    font-size: 28px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.1s;
+    aspect-ratio: 1;
+    height: 70px;
+    width: 70px;
+    flex-shrink: 0;
+  }
+  #btn-fire {
+    background: rgba(255,238,0,0.12);
+    border-color: rgba(255,238,0,0.6);
+    color: #ffee00;
+    font-size: 14px;
+    font-weight: bold;
+    border-radius: 50%;
+    height: 80px;
+    width: 80px;
+    letter-spacing: 0.5px;
+  }
+  .touch-btn:active, .touch-btn.pressed {
+    background: rgba(0,255,68,0.35);
+  }
+  #btn-fire:active, #btn-fire.pressed {
+    background: rgba(255,238,0,0.35);
+  }
+  .dir-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
   }
 </style>
 </head>
 <body>
-<canvas id="gameCanvas"></canvas>
+<div id="wrapper">
+  <canvas id="gameCanvas"></canvas>
+  <div id="touch-controls">
+    <div class="dir-group">
+      <button class="touch-btn" id="btn-left">&#9664;</button>
+    </div>
+    <button class="touch-btn" id="btn-fire">FIRE</button>
+    <div class="dir-group">
+      <button class="touch-btn" id="btn-right">&#9654;</button>
+    </div>
+  </div>
+</div>
 <script>
 // ─── CANVAS SETUP ───────────────────────────────────────────────────────────
 const canvas = document.getElementById('gameCanvas');
@@ -32,14 +108,22 @@ const BASE_W = 800, BASE_H = 600;
 canvas.width  = BASE_W;
 canvas.height = BASE_H;
 
-// scale to fit window while keeping aspect ratio
+// Detect touch device
+const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+const touchControls = document.getElementById('touch-controls');
+if (isTouchDevice) touchControls.classList.add('visible');
+
 function resizeCanvas() {
-  const s = Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H);
+  const tcH = isTouchDevice ? (touchControls.offsetHeight || 100) : 0;
+  const availW = window.innerWidth;
+  const availH = window.innerHeight - tcH;
+  const s = Math.min(availW / BASE_W, availH / BASE_H);
   canvas.style.width  = BASE_W * s + 'px';
   canvas.style.height = BASE_H * s + 'px';
 }
 window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
+// Wait for layout before first resize
+setTimeout(resizeCanvas, 50);
 
 // ─── AUDIO ──────────────────────────────────────────────────────────────────
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -228,6 +312,31 @@ document.addEventListener('keydown', e => {
   if (e.code === 'KeyP' && state === 'paused')  { state = 'playing'; return; }
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+// ─── TOUCH INPUT ─────────────────────────────────────────────────────────────
+function setupTouchBtn(id, keyCode) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const press   = e => { e.preventDefault(); keys[keyCode] = true;  el.classList.add('pressed'); };
+  const release = e => { e.preventDefault(); keys[keyCode] = false; el.classList.remove('pressed'); };
+  el.addEventListener('touchstart',  press,   { passive: false });
+  el.addEventListener('touchend',    release, { passive: false });
+  el.addEventListener('touchcancel', release, { passive: false });
+  el.addEventListener('mousedown',   press);
+  el.addEventListener('mouseup',     release);
+  el.addEventListener('mouseleave',  release);
+}
+setupTouchBtn('btn-left',  'ArrowLeft');
+setupTouchBtn('btn-right', 'ArrowRight');
+setupTouchBtn('btn-fire',  'Space');
+
+// Tap canvas / anywhere to start or restart on touch
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  audioCtx.resume();
+  if (state === 'start')    { state = 'playing'; initGame(); }
+  else if (state === 'gameover' || state === 'victory') { state = 'start'; }
+}, { passive: false });
 
 // ─── PARTICLES ───────────────────────────────────────────────────────────────
 function spawnExplosion(cx, cy, color = '#ff9900') {
@@ -605,14 +714,19 @@ function drawStartScreen() {
   ctx.font = '16px Courier New';
   ctx.fillText('CONTROLS', BASE_W / 2, 310);
   ctx.font = '14px Courier New';
-  ctx.fillText('← → / A D    Move', BASE_W / 2, 335);
-  ctx.fillText('SPACE         Fire', BASE_W / 2, 358);
-  ctx.fillText('P             Pause', BASE_W / 2, 381);
+  if (isTouchDevice) {
+    ctx.fillText('Use on-screen buttons', BASE_W / 2, 335);
+    ctx.fillText('TAP SCREEN to start', BASE_W / 2, 358);
+  } else {
+    ctx.fillText('← → / A D    Move', BASE_W / 2, 335);
+    ctx.fillText('SPACE         Fire', BASE_W / 2, 358);
+    ctx.fillText('P             Pause', BASE_W / 2, 381);
+  }
 
   ctx.fillStyle = '#ffee00';
   ctx.font = 'bold 20px Courier New';
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
-  if (blink) ctx.fillText('PRESS ENTER OR SPACE TO BEGIN', BASE_W / 2, 460);
+  if (blink) ctx.fillText(isTouchDevice ? 'TAP TO BEGIN' : 'PRESS ENTER OR SPACE TO BEGIN', BASE_W / 2, 460);
 
   ctx.fillStyle = '#555555';
   ctx.font = '13px Courier New';
@@ -651,7 +765,7 @@ function drawGameOverScreen() {
   ctx.fillStyle = '#ffee00';
   ctx.font = 'bold 20px Courier New';
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
-  if (blink) ctx.fillText('PRESS ENTER OR SPACE TO RESTART', BASE_W / 2, 420);
+  if (blink) ctx.fillText(isTouchDevice ? 'TAP TO RESTART' : 'PRESS ENTER OR SPACE TO RESTART', BASE_W / 2, 420);
 }
 
 function drawVictoryScreen() {
@@ -680,7 +794,7 @@ function drawVictoryScreen() {
   ctx.fillStyle = '#ffee00';
   ctx.font = 'bold 20px Courier New';
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
-  if (blink) ctx.fillText('PRESS ENTER OR SPACE TO PLAY AGAIN', BASE_W / 2, 440);
+  if (blink) ctx.fillText(isTouchDevice ? 'TAP TO PLAY AGAIN' : 'PRESS ENTER OR SPACE TO PLAY AGAIN', BASE_W / 2, 440);
 }
 
 // ─── MAIN LOOP ───────────────────────────────────────────────────────────────
