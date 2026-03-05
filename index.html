@@ -244,14 +244,14 @@ function initGame(keepScore){
   enemies=[];
   var gW=COLS*(EW+EPX)-EPX,sx=(BASE_W-gW)/2;
   // Each wave enemies start slightly lower (closer to player)
-  var sy=Math.min(70+wave*10,160);
+  var sy=Math.min(70+wave*10,200);
   // Base enemy interval gets faster each wave
-  var baseInt=Math.max(.12,.8-wave*.1);
+  var baseInt=Math.max(.07,.8-wave*.08);
   emInt=baseInt;
   for(var r=0;r<ROWS;r++){
     for(var c=0;c<COLS;c++){
       // Wave 3+: top row enemies take 2 hits
-      var hp=(wave>=3&&r===0)?2:1;
+      var hp=(wave>=8&&r<=2)?2:(wave>=6&&r<=1)?2:(wave>=3&&r===0)?2:1;
       enemies.push({r:r,c:c,x:sx+c*(EW+EPX),y:sy+r*(EH+EPY),w:EW,h:EH,alive:true,pts:RPTS[r],hp:hp,maxHp:hp});
     }
   }
@@ -640,7 +640,7 @@ function update(dt){
 
 function nextWave(){
   wave++;
-  if(wave>5){end('victory');return;}
+  if(wave>10){end('victory');return;}
   initGame(true);
 }
 function end(r){state=r;if(r==='gameover')sndOver();else sndWin();}
@@ -783,7 +783,7 @@ function drawGame(){
   ctx.fillStyle='#00ff44';ctx.font='bold 16px Courier New';
   ctx.textAlign='left';ctx.fillText('SCORE: '+score,10,24);
   ctx.textAlign='center';ctx.fillText('HI: '+hi,BASE_W/2,24);
-  ctx.textAlign='right';ctx.fillText('WAVE '+wave+'/5',BASE_W-10,24);
+  ctx.textAlign='right';ctx.fillText('WAVE '+wave+'/10',BASE_W-10,24);
   ctx.fillText('LIVES:',BASE_W-84,44);
   for(var li=0;li<lives;li++){
     if(PL&&PI.naturalWidth>0)ctx.drawImage(PI,BASE_W-72+li*20,30,14,12);
@@ -833,7 +833,7 @@ function drawStart(){
   ctx.fillStyle='#ffee00';ctx.font='bold 12px Courier New';
   ctx.fillText('WEAPONS:  1-STD (yellow)  2-RAPID (blue)  3-BOOM (orange AOE)  4-LOCK (purple homing)',BASE_W/2,358);
   ctx.fillStyle='#888';ctx.font='12px Courier New';
-  ctx.fillText('5 WAVES  |  UFO BONUS SHIPS  |  SHIELDS  |  COMBO MULTIPLIER',BASE_W/2,382);
+  ctx.fillText('10 WAVES  |  UFO BONUS SHIPS  |  SHIELDS  |  COMBO MULTIPLIER',BASE_W/2,382);
   ctx.fillStyle='#ffee00';ctx.font='bold 20px Courier New';
   if(BLINK())ctx.fillText(isMobile?'TAP TO BEGIN':'PRESS ENTER OR SPACE',BASE_W/2,432);
   ctx.fillStyle='#555';ctx.font='13px Courier New';
@@ -855,7 +855,7 @@ function drawOver(){
   ctx.fillText('SCORE: '+score,BASE_W/2,275);
   ctx.fillText('HIGH SCORE: '+hi,BASE_W/2,315);
   ctx.fillStyle='#aaa';ctx.font='18px Courier New';
-  ctx.fillText('Reached Wave '+wave+' of 5',BASE_W/2,355);
+  ctx.fillText('Reached Wave '+wave+' of 10',BASE_W/2,355);
   ctx.fillStyle='#ffee00';ctx.font='bold 20px Courier New';
   if(BLINK())ctx.fillText(isMobile?'TAP TO RESTART':'PRESS ENTER OR SPACE',BASE_W/2,425);
 }
@@ -866,7 +866,7 @@ function drawWin(){
   ctx.shadowColor='hsl('+h+',100%,60%)';ctx.shadowBlur=24;
   ctx.fillText('YOU WIN!',BASE_W/2,175);ctx.shadowBlur=0;
   ctx.fillStyle='#aaa';ctx.font='18px Courier New';
-  ctx.fillText('All 5 waves cleared!',BASE_W/2,230);
+  ctx.fillText('All 10 waves cleared!',BASE_W/2,230);
   ctx.fillStyle='#fff';ctx.font='24px Courier New';
   ctx.fillText('SCORE: '+score,BASE_W/2,275);
   ctx.fillText('HIGH SCORE: '+hi,BASE_W/2,315);
