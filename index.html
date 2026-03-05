@@ -21,7 +21,17 @@ html,body{
   flex:1 1 auto;display:flex;
   align-items:flex-start;justify-content:center;
   width:100%;overflow:hidden;min-height:0;
+  position:relative;
 }
+#btn-mute{
+  position:absolute;top:6px;right:6px;z-index:10;
+  background:rgba(0,0,0,.55);border:1px solid rgba(0,255,68,.35);
+  border-radius:8px;color:#00ff44;font-size:18px;
+  width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;padding:0;line-height:1;
+}
+#btn-mute:active{background:rgba(0,255,68,.25);}
 canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;}
 #touch-controls{
   flex:0 0 auto;width:100%;
@@ -74,6 +84,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;}
 <div id="wrapper">
   <div id="canvasWrap">
     <canvas id="gameCanvas"></canvas>
+    <button id="btn-mute" title="Mute (M)">&#128266;</button>
   </div>
   <div id="touch-controls">
     <!-- Left thumb: cross D-pad -->
@@ -120,10 +131,19 @@ resizeCanvas();setTimeout(resizeCanvas,100);setTimeout(resizeCanvas,500);
 
 // ── AUDIO ─────────────────────────────────────────────────────────
 const AC=new(window.AudioContext||window.webkitAudioContext)();
+const masterGain=AC.createGain();masterGain.connect(AC.destination);
+let muted=localStorage.getItem('siMute')==='1';
+masterGain.gain.value=muted?0:1;
+function toggleMute(){
+  muted=!muted;masterGain.gain.value=muted?0:1;
+  localStorage.setItem('siMute',muted?'1':'0');
+  var btn=document.getElementById('btn-mute');
+  if(btn)btn.textContent=muted?'\uD83D\uDD07':'\uD83D\uDD0A';
+}
 function tone(f,t,d,v,dl){
   v=v===undefined?.3:v; dl=dl||0;
   const o=AC.createOscillator(),g=AC.createGain();
-  o.connect(g);g.connect(AC.destination);
+  o.connect(g);g.connect(masterGain);
   o.type=t;o.frequency.setValueAtTime(f,AC.currentTime+dl);
   g.gain.setValueAtTime(v,AC.currentTime+dl);
   g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+dl+d);
@@ -136,7 +156,7 @@ function sndBoom(){
   const b=AC.createBuffer(1,AC.sampleRate*.3,AC.sampleRate),d=b.getChannelData(0);
   for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length);
   const s=AC.createBufferSource(),g=AC.createGain();
-  s.buffer=b;s.connect(g);g.connect(AC.destination);
+  s.buffer=b;s.connect(g);g.connect(masterGain);
   g.gain.setValueAtTime(.4,AC.currentTime);
   g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.3);
   s.start();
@@ -145,7 +165,7 @@ function sndBigBoom(){
   const b=AC.createBuffer(1,AC.sampleRate*.5,AC.sampleRate),d=b.getChannelData(0);
   for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length);
   const s=AC.createBufferSource(),g=AC.createGain();
-  s.buffer=b;s.connect(g);g.connect(AC.destination);
+  s.buffer=b;s.connect(g);g.connect(masterGain);
   g.gain.setValueAtTime(.7,AC.currentTime);
   g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.5);
   s.start();
@@ -245,6 +265,7 @@ document.addEventListener('keydown',function(e){
   if((e.code==='Space'||e.code==='Enter')&&(state==='gameover'||state==='victory')){state='start';return;}
   if(e.code==='KeyP'&&state==='playing'){state='paused';return;}
   if(e.code==='KeyP'&&state==='paused'){state='playing';return;}
+  if(e.code==='KeyM'){toggleMute();return;}
   if(state==='playing'){
     if(e.code==='Digit1'){setWeapon(0);}
     if(e.code==='Digit2'){setWeapon(1);}
@@ -290,6 +311,13 @@ bindBtn('btn-fire','Space');
   };
   bp.addEventListener('touchstart',tog,{passive:false});
   bp.addEventListener('mousedown',tog);
+})();
+
+(function(){
+  var bm=document.getElementById('btn-mute');if(!bm)return;
+  bm.textContent=muted?'\uD83D\uDD07':'\uD83D\uDD0A';
+  bm.addEventListener('touchstart',function(e){e.preventDefault();toggleMute();},{passive:false});
+  bm.addEventListener('mousedown',toggleMute);
 })();
 
 var btnW=document.getElementById('btn-weapon');
