@@ -19,42 +19,55 @@ html,body{
 }
 #canvasWrap{
   flex:1 1 auto;display:flex;
-  align-items:center;justify-content:center;
+  align-items:flex-start;justify-content:center;
   width:100%;overflow:hidden;min-height:0;
 }
 canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;}
 #touch-controls{
   flex:0 0 auto;width:100%;
   display:none;
-  flex-direction:column;
+  flex-direction:row;
   align-items:center;
-  padding:6px 16px 8px;
+  justify-content:space-between;
+  padding:14px 12px 18px;
   background:rgba(0,0,0,.95);
   border-top:1px solid #003300;
-  gap:6px;
 }
 @media (pointer:coarse){#touch-controls{display:flex}}
-.trow{display:flex;align-items:center;justify-content:space-between;width:100%;}
+#touch-controls.tc-show{display:flex}
+/* D-pad cross cluster */
+#dpad{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.dpad-row{display:flex;align-items:center;gap:4px;}
+.dpad-center{width:64px;height:64px;}
+/* Action cluster */
+#action-btns{display:flex;flex-direction:column;align-items:center;gap:10px;}
+.action-top{display:flex;gap:8px;}
 .tbtn{
   background:rgba(0,255,68,.1);border:2px solid rgba(0,255,68,.5);
-  border-radius:50%;color:#00ff44;font-size:28px;font-weight:bold;
-  width:66px;height:66px;display:flex;align-items:center;justify-content:center;
+  border-radius:50%;color:#00ff44;font-size:26px;font-weight:bold;
+  width:64px;height:64px;display:flex;align-items:center;justify-content:center;
   cursor:pointer;-webkit-tap-highlight-color:transparent;
-  transition:background .08s;flex-shrink:0;
+  transition:background .08s;flex-shrink:0;touch-action:manipulation;
 }
 #btn-fire{
   background:rgba(255,238,0,.1);border-color:rgba(255,238,0,.6);
-  color:#ffee00;font-size:13px;font-weight:bold;
-  width:76px;height:76px;letter-spacing:1px;
+  color:#ffee00;font-size:15px;font-weight:bold;
+  width:84px;height:84px;letter-spacing:1px;
 }
 #btn-weapon{
   background:rgba(100,100,255,.1);border-color:rgba(100,100,255,.5);
   color:#8888ff;font-size:11px;font-weight:bold;letter-spacing:0.5px;
-  width:76px;height:76px;border-radius:12px;
+  width:64px;height:64px;border-radius:12px;line-height:1.4;
+}
+#btn-pause{
+  background:rgba(0,255,68,.08);border-color:rgba(0,255,68,.35);
+  color:#00ff44;font-size:20px;
+  width:64px;height:64px;
 }
 .tbtn:active,.tbtn.on{background:rgba(0,255,68,.4)}
 #btn-fire:active,#btn-fire.on{background:rgba(255,238,0,.4)}
 #btn-weapon:active,#btn-weapon.on{background:rgba(100,100,255,.4)}
+#btn-pause:active,#btn-pause.on{background:rgba(0,255,68,.35)}
 </style>
 </head>
 <body>
@@ -63,15 +76,27 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;}
     <canvas id="gameCanvas"></canvas>
   </div>
   <div id="touch-controls">
-    <div class="trow">
-      <button class="tbtn" id="btn-up">&#9650;</button>
-      <button class="tbtn" id="btn-weapon">1&#10;STD</button>
-      <button class="tbtn" id="btn-down">&#9660;</button>
+    <!-- Left thumb: cross D-pad -->
+    <div id="dpad">
+      <div class="dpad-row">
+        <button class="tbtn" id="btn-up">&#9650;</button>
+      </div>
+      <div class="dpad-row">
+        <button class="tbtn" id="btn-left">&#9664;</button>
+        <div class="dpad-center"></div>
+        <button class="tbtn" id="btn-right">&#9654;</button>
+      </div>
+      <div class="dpad-row">
+        <button class="tbtn" id="btn-down">&#9660;</button>
+      </div>
     </div>
-    <div class="trow">
-      <button class="tbtn" id="btn-left">&#9664;</button>
+    <!-- Right thumb: action buttons -->
+    <div id="action-btns">
+      <div class="action-top">
+        <button class="tbtn" id="btn-pause">&#9646;&#9646;</button>
+        <button class="tbtn" id="btn-weapon">1&#10;STD</button>
+      </div>
       <button class="tbtn" id="btn-fire">FIRE</button>
-      <button class="tbtn" id="btn-right">&#9654;</button>
     </div>
   </div>
 </div>
@@ -81,7 +106,8 @@ const ctx=canvas.getContext('2d');
 const BASE_W=800,BASE_H=600;
 canvas.width=BASE_W; canvas.height=BASE_H;
 
-const isMobile=window.matchMedia('(pointer:coarse)').matches;
+const isMobile=window.matchMedia('(pointer:coarse)').matches||navigator.maxTouchPoints>0;
+if(isMobile){var tc=document.getElementById('touch-controls');if(tc)tc.classList.add('tc-show');}
 
 function resizeCanvas(){
   const wrap=document.getElementById('canvasWrap');
@@ -255,6 +281,16 @@ bindBtn('btn-right','ArrowRight');
 bindBtn('btn-up','ArrowUp');
 bindBtn('btn-down','ArrowDown');
 bindBtn('btn-fire','Space');
+(function(){
+  var bp=document.getElementById('btn-pause');if(!bp)return;
+  var tog=function(e){
+    e.preventDefault();
+    if(state==='playing'){state='paused';}
+    else if(state==='paused'){state='playing';}
+  };
+  bp.addEventListener('touchstart',tog,{passive:false});
+  bp.addEventListener('mousedown',tog);
+})();
 
 var btnW=document.getElementById('btn-weapon');
 if(btnW){
@@ -780,7 +816,7 @@ function drawPause(){
   ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,BASE_W,BASE_H);
   ctx.fillStyle='#ffee00';ctx.font='bold 48px Courier New';ctx.textAlign='center';
   ctx.fillText('PAUSED',BASE_W/2,BASE_H/2);
-  ctx.font='18px Courier New';ctx.fillText('P to Resume',BASE_W/2,BASE_H/2+50);
+  ctx.font='18px Courier New';ctx.fillText(isMobile?'Tap \u23f8 to Resume':'P to Resume',BASE_W/2,BASE_H/2+50);
 }
 function drawOver(){
   ctx.fillStyle='#000010';ctx.fillRect(0,0,BASE_W,BASE_H);
